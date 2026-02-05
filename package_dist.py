@@ -19,7 +19,10 @@ def package_project():
         'venv', 
         'env',
         'StockV2.1_env_backup',
-        'StockV2.1_db_backup'
+        'StockV2.1_db_backup',
+        '.ssh',
+        'secrets',
+        'certs'
     }
     
     exclude_files = {
@@ -42,7 +45,12 @@ def package_project():
             for file in files:
                 if file in exclude_files:
                     continue
-                if file.endswith(('.pyc', '.pyo', '.log', '.tar', '.zip')):
+                # Additional sensitive patterns
+                if file.startswith('.env'):
+                    continue
+                if file in ('id_rsa', 'id_ed25519'):
+                    continue
+                if file.endswith(('.pyc', '.pyo', '.log', '.tar', '.zip', '.db', '.pem', '.key', '.crt', '.cer', '.p12')):
                     continue
                     
                 file_path = os.path.join(root, file)
