@@ -5,7 +5,7 @@ import json
 import db_manager
 import re
 
-def analyze_stock(symbol, data_df, market_info=None, provider=None, api_key=None, base_url=None, stock_name=None, model_name=None):
+def analyze_stock(symbol, data_df, market_info=None, provider=None, api_key=None, base_url=None, stock_name=None, model_name=None, realtime_quote=None):
     """
     Analyze stock data using LLM with short-term predictions and self-learning context.
     """
@@ -29,15 +29,33 @@ def analyze_stock(symbol, data_df, market_info=None, provider=None, api_key=None
     latest = data_df.iloc[-1]
     prev = data_df.iloc[-2]
     
+    # Determine current data to show (Real-time vs Historical)
+    current_price = latest['close']
+    current_date = latest['date']
+    pct_change = latest.get('pct_change', 'N/A')
+    data_source_note = "Historical Data (Yesterday's Close)"
+    
+    if realtime_quote:
+        current_price = realtime_quote.get('price', current_price)
+        current_date = realtime_quote.get('time', current_date)
+        pct_change = realtime_quote.get('pct_change', pct_change)
+        data_source_note = f"Real-time Data (Source: {realtime_quote.get('source', 'Unknown')})"
+    
     summary = f"""
     Symbol: {symbol} ({stock_name if stock_name else symbol})
+    Current Date/Time: {current_date}
+    Data Source: {data_source_note}
+    
+    **Current Price**: {current_price}
+    **Daily Pct Change**: {pct_change}%
+    
+    Historical Context (Latest Daily Bar):
     Date: {latest['date']}
     Close: {latest['close']}
     Open: {latest['open']}
     High: {latest['high']}
     Low: {latest['low']}
     Volume: {latest['volume']}
-    Pct Change: {latest.get('pct_change', 'N/A')}%
     
     Previous Close: {prev['close']}
     """

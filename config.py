@@ -30,8 +30,8 @@ DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Stock Configuration
-# Format: "symbol" (e.g., "sh600519" for Moutai)
-DEFAULT_STOCKS = ["sh600519", "sz000001", "hk00700"]
+# Format: "symbol" (e.g., "sh600519" for Moutai, "AAPL" for Apple)
+DEFAULT_STOCKS = ["sh600519", "sz000001", "hk00700", "AAPL", "NVDA", "TSLA"]
 
 # Notification Configuration
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.example.com")

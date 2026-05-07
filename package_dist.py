@@ -8,7 +8,7 @@ def package_project():
     
     # Output filename with timestamp
     timestamp = datetime.datetime.now().strftime("%Y%m%d")
-    output_filename = f"StockV2.2_Dist_{timestamp}.zip"
+    output_filename = f"StockV2.3_Dist_{timestamp}.zip"
     
     # Files/Dirs to exclude
     exclude_dirs = {

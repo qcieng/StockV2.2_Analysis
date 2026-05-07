@@ -107,27 +107,47 @@ def check_database():
         return False
 
 def check_data_source():
-    print_header("4. Data Source Check (yfinance)")
+    print_header("4. Data Source Check (Realtime + yfinance)")
     try:
         import data_fetcher
-        print("Testing connection to yfinance...")
-        # Try a robust index
-        df = data_fetcher.get_market_overview()
-        if df and "error" not in df:
-            print("✅ Market overview fetched successfully.")
-            
-            # Test individual stock fetch
-            print("Testing individual stock fetch (sh600519)...")
-            stock_df = data_fetcher.get_stock_data("sh600519", limit=5)
-            if stock_df is not None and not stock_df.empty:
-                 print("✅ Individual stock fetched successfully.")
-                 return True
-            else:
-                 print("⚠️ Individual stock fetch failed (could be market hours or network).")
-                 return True # Don't fail the whole check for this
+        # Realtime index overview
+        print("Testing realtime market overview (Sina/Xueqiu/Tencent)...")
+        rt_idx = data_fetcher.get_market_overview()
+        if rt_idx and "error" not in rt_idx:
+            sh = rt_idx.get("sh_index")
+            sz = rt_idx.get("sz_index")
+            print(f"✅ Realtime Index: SH={sh}, SZ={sz}")
         else:
-            print(f"❌ Failed to fetch market overview: {df.get('error')}")
-            return False
+            print(f"⚠️ Realtime market overview unavailable: {rt_idx.get('error') if isinstance(rt_idx, dict) else rt_idx}")
+        
+        # Test individual stock fetch (historical)
+        print("Testing yfinance stock fetch (sh600519)...")
+        stock_df = data_fetcher.get_stock_data("sh600519", limit=5)
+        if stock_df is not None and not stock_df.empty:
+            print("✅ yfinance historical fetch OK.")
+        else:
+            print("⚠️ yfinance fetch failed (network or symbol).")
+        
+        # Realtime freshness check
+        print("Testing realtime quote freshness (sh600519)...")
+        rt = data_fetcher.get_realtime_quote("sh600519")
+        if rt and rt.get("time"):
+            import datetime as _dt
+            try:
+                rt_time = _dt.datetime.strptime(rt["time"], "%Y-%m-%d %H:%M:%S")
+                delta = _dt.datetime.now() - rt_time
+                minutes = delta.total_seconds() / 60.0
+                print(f"Realtime source: {rt.get('source')}, price: {rt.get('price')}, time: {rt.get('time')} (Δ {minutes:.1f} min)")
+                if minutes <= 10:
+                    print("✅ Freshness OK (≤10 min)")
+                else:
+                    print("⚠️ Freshness degraded (>10 min).")
+            except Exception as e:
+                print(f"⚠️ Unable to parse realtime time: {e}")
+        else:
+            print("⚠️ Realtime quote not available.")
+        
+        return True
     except Exception as e:
         print(f"❌ Data source error: {e}")
         return False

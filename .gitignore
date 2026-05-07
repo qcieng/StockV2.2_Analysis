@@ -18,7 +18,12 @@ test_knowledge.db
 debug_*.log
 app.log
 test_out.txt
+test_output*.txt
+test_us_support.py
 verify_output.txt
+dist/
+build/
+*.exe
 .vscode/
 .idea/
 StockV2.1_env_backup/

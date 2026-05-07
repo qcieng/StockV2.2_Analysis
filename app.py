@@ -47,6 +47,7 @@ st.markdown("""
     /* Metrics */
     div[data-testid="stMetricValue"] {
         color: #0DCAF0;
+        font-size: 24px !important; /* Adjusted font size for better visibility */
     }
     
     /* Tabs */
@@ -78,7 +79,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📈 StockV2.2 AI 智能决策系统")
+st.title("📈 StockV2.3 AI 智能决策系统")
 
 # Initialize session state for API Key if not present
 if "api_key" not in st.session_state:
@@ -151,10 +152,11 @@ with st.sidebar:
     st.divider()
     
     st.subheader("自选股管理")
+    st.caption("支持格式: A股(sh600519/sz000001), 港股(hk00700), 美股(AAPL/NVDA)")
     
     # Search & History
     st.write("**🔍 股票搜索 (Search Stock)**")
-    search_query = st.text_input("输入代码或名称 (Input Code/Name)", key="search_box")
+    search_query = st.text_input("输入代码或名称 (如: 苹果, AAPL, 茅台)", key="search_box")
     if search_query:
         results = data_fetcher.search_stock_code(search_query)
         if results:
@@ -319,6 +321,25 @@ with tab_dash:
                 
                 # Fetch Data ONCE per stock
                 df = data_fetcher.get_stock_data(symbol)
+                # Fetch realtime quote
+                rt = data_fetcher.get_realtime_quote(symbol)
+                
+                # Update stock name from realtime source if available (fallback for missing static map entries)
+                if rt and rt.get('name') and (stock_name == symbol or not stock_name):
+                    stock_name = rt.get('name')
+                
+                # Build market info text with realtime context
+                mi_text = ""
+                if isinstance(market_info, dict):
+                    sh = market_info.get("sh_index")
+                    sz = market_info.get("sz_index")
+                    shchg = market_info.get("sh_change")
+                    szchg = market_info.get("sz_change")
+                    mi_text = f"SH Index {sh} ({shchg}%), SZ Index {sz} ({szchg}%)"
+                else:
+                    mi_text = str(market_info)
+                if rt:
+                    mi_text += f"\nRealtime {stock_name}: {rt.get('price')} ({rt.get('pct_change')}%) at {rt.get('time')} via {rt.get('source')}"
                 
                 if df is not None and not df.empty:
                     # Run Analysis for EACH Model
@@ -331,9 +352,10 @@ with tab_dash:
                         with st.spinner(f"Analyzing {stock_name} with {provider}..."):
                             # Analyze
                             report_data = llm_analyzer.analyze_stock(
-                                symbol, df, market_info, 
+                                symbol, df, mi_text, 
                                 provider=provider, api_key=api_key, base_url=base_url,
-                                stock_name=stock_name, model_name=model_name
+                                stock_name=stock_name, model_name=model_name,
+                                realtime_quote=rt
                             )
                             
                             # Store in Session State (Append or overwrite? For now overwrite per stock, 
@@ -394,12 +416,52 @@ with tab_dash:
                 with left_container:
                     st.markdown(f"#### {stock_name} ({symbol})")
                     if df is not None and not df.empty:
-                        latest = df.iloc[-1]
+                        # Fetch Real-time Data FIRST
+                        rt = data_fetcher.get_realtime_quote(symbol)
+                        
+                        # Decide what to show in Metrics
+                        if rt:
+                            price_display = rt.get('price')
+                            pct_display = f"{rt.get('pct_change')}%"
+                            time_display = rt.get('time')
+                            source_display = rt.get('source')
+                            
+                            # Validation: Check if data is fresh (today)
+                            try:
+                                # Simple check: if date part of rt time is today
+                                # Note: rt['time'] format varies (YYYY-MM-DD HH:MM:SS)
+                                now_str = datetime.datetime.now().strftime("%Y-%m-%d")
+                                if now_str not in str(time_display):
+                                     time_display = f"⚠️ {time_display} (Delayed/Closed?)"
+                            except:
+                                pass
+                                
+                            metric_label = f"Close (Real-time: {time_display})"
+                        else:
+                            # Fallback to DataFrame last row
+                            latest = df.iloc[-1]
+                            price_display = latest['close']
+                            pct_display = f"{latest.get('pct_change', 0)}%"
+                            metric_label = f"Close (Daily: {latest['date']})"
+                            source_display = "history"
+
+                        # Display Metrics
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Close", f"{latest['close']}")
-                        m2.metric("Chg", f"{latest.get('pct_change', 0)}%")
-                        m3.metric("High", f"{latest['high']}")
-                        m4.metric("Low", f"{latest['low']}")
+                        m1.metric(metric_label, f"{price_display}")
+                        m2.metric("Chg", pct_display)
+                        
+                        # High/Low still from daily DF if RT doesn't provide it, 
+                        # but some RT sources might. For now stick to DF or RT if available.
+                        # data_fetcher.get_realtime_quote might return open/high/low/vol for Sina.
+                        # Let's check if rt has high/low
+                        high_display = rt.get('high') if rt and rt.get('high') else df.iloc[-1]['high']
+                        low_display = rt.get('low') if rt and rt.get('low') else df.iloc[-1]['low']
+                        
+                        m3.metric("High", f"{high_display}")
+                        m4.metric("Low", f"{low_display}")
+                        
+                        if rt:
+                            st.caption(f"Source: {source_display} | Time: {rt.get('time')}")
                         
                         st.line_chart(df.set_index('date')['close'], height=200)
                     

@@ -8,7 +8,7 @@ HOST = '192.168.137.68'
 USER = 'host'
 PASS = 'Huawei@123'
 REMOTE_DIR = '/home/host/StockV2.1'
-LOCAL_TAR = 'StockV2.2.tar'
+LOCAL_TAR = 'StockV2.3.tar'
 
 def create_tar():
     base = os.getcwd()
